@@ -2,7 +2,10 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import mongoose from "mongoose";
 import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import {
+  uploadOnCloudinary,
+  deleteFromCloudinary,
+} from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 
@@ -24,6 +27,15 @@ const generateAcessAndRefreshTokens = async (userId) => {
       "Something went wrong while generating refresh and access token"
     );
   }
+};
+
+const getPublicIdFromUrl = function (url) {
+  console.log(typeof url);
+  const parts = url.split("/");
+  const lastPart = parts.pop(); // This is the file name with extension
+  const publicIdWithExtension = lastPart.split(".")[0]; // Remove the file extension
+
+  return publicIdWithExtension;
 };
 
 const registerUser = asyncHandler(async (req, res) => {
@@ -299,6 +311,11 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Error while uploading on avatar");
   }
 
+  const prevData = await User.findById(req.user?._id).select("avatar");
+  const prevPublicId = getPublicIdFromUrl(prevData.avatar);
+  const check = deleteFromCloudinary(prevPublicId).then(() => {
+    console.log("successfull");
+  });
   const user = await User.findByIdAndUpdate(
     req.user?._id,
     {
@@ -311,7 +328,6 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     }
   ).select("-password");
 
-  // Todo : Deleting the previous images
   return res
     .status(200)
     .json(new ApiResponse(200, user, "Avatar updated sucessfully"));
